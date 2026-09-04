@@ -113,7 +113,7 @@ export async function fetchSettings(): Promise<Record<string, string>> {
   return Object.fromEntries((data ?? []).map((s) => [s.key, s.value]));
 }
 
-export const DEFAULT_SITE_CONTENT: Record<string, string> = {
+export const DEFAULT_SITE_CONTENT = {
   contact_email: "yemelink@gmail.com",
   contact_phone: "+90 501 024 20 25",
   contact_address: "Bolu, Türkiye",
