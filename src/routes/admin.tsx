@@ -304,13 +304,13 @@ function DashboardPanel() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {(list.slice(0, 6) as Array<Record<string, unknown>>).map((book) => {
+                {list.slice(0, 6).map((book) => {
                   const landed = landedCost(book as never);
-                  const m = marginPct(Number(book.price ?? 0), landed);
+                  const m = marginPct(Number(book["price"] ?? 0), landed);
                   return (
-                    <tr key={String(book.id)}>
-                      <td className="p-2">{String(book.title ?? "—")}</td>
-                      <td className="p-2">{formatTRY(book.price ?? 0)}</td>
+                    <tr key={String(book["id"])}>
+                      <td className="p-2">{String(book["title"] ?? "—")}</td>
+                      <td className="p-2">{formatTRY(Number(book["price"] ?? 0))}</td>
                       <td className="p-2 text-muted-foreground">{formatTRY(landed)}</td>
                       <td className={`p-2 font-semibold ${m < 20 ? "text-destructive" : "text-success"}`}>{m.toFixed(1)}%</td>
                     </tr>
