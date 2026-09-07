@@ -191,7 +191,7 @@ function BookPage() {
             </div>
 
             <div className="mt-6 flex items-baseline gap-3">
-              <span className="font-serif text-3xl">{format(book.price)}</span>
+              <span className="font-serif text-3xl">{price({ try: book.price, usd: book.price_usd, eur: book.price_eur })}</span>
               {book.compare_at_price && Number(book.compare_at_price) > Number(book.price) && (
                 <span className="text-base text-muted-foreground line-through">{format(book.compare_at_price)}</span>
               )}
