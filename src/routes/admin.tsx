@@ -211,7 +211,7 @@ const CUSTOMER_FIELDS = [
   { name: "newsletter_opt_in", label: "Newsletter", type: "boolean" as const, default: false },
 ];
 
-function Stat({ label, value, icon: Icon }: { label: string; value: string; icon: (props: { className?: string }) => React.ReactElement }) {
+function Stat({ label, value, icon: Icon }: { label: string; value: string; icon: import("react").ComponentType<{ className?: string }> }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-panel">
       <div className="flex items-center justify-between">
