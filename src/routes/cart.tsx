@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { SiteShell, EmptyState } from "@/components/livora/SiteShell";
 import { useCart } from "@/lib/cart";
-import { useCurrency } from "@/lib/currency";
+import { formatCurrency, useCurrency } from "@/lib/currency";
 import { PUBLIC_DEFAULTS, shippingFor } from "@/lib/catalog";
 import { useI18n } from "@/lib/i18n";
 
@@ -23,8 +23,12 @@ export const Route = createFileRoute("/cart")({
 function CartPage() {
   const { lines, subtotal, setQty, remove } = useCart();
   const { t } = useI18n();
-  const { format } = useCurrency();
+  const { format, amount, convert, currency } = useCurrency();
   const shipping = shippingFor(subtotal);
+  const lineTotal = (l: (typeof lines)[number]) =>
+    amount({ try: l.price, usd: l.priceUsd, eur: l.priceEur }) * l.quantity;
+  const subtotalDisplay = lines.reduce((sum, l) => sum + lineTotal(l), 0);
+  const shippingDisplay = convert(shipping);
   const remaining = PUBLIC_DEFAULTS.freeShippingThreshold - subtotal;
 
   return (
@@ -77,7 +81,7 @@ function CartPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="text-right text-sm font-bold">{format(l.price * l.quantity)}</div>
+                  <div className="text-right text-sm font-bold">{formatCurrency(lineTotal(l), currency)}</div>
                 </li>
               ))}
             </ul>
@@ -91,15 +95,15 @@ function CartPage() {
               <dl className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">{t("cart.subtotal")}</dt>
-                  <dd>{format(subtotal)}</dd>
+                  <dd>{formatCurrency(subtotalDisplay, currency)}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">{t("cart.shipping")}</dt>
-                  <dd>{shipping === 0 ? t("cart.free") : format(shipping)}</dd>
+                  <dd>{shipping === 0 ? t("cart.free") : formatCurrency(shippingDisplay, currency)}</dd>
                 </div>
                 <div className="flex justify-between border-t border-border pt-3 text-base font-bold">
                   <dt>{t("cart.total")}</dt>
-                  <dd>{format(subtotal + shipping)}</dd>
+                  <dd>{formatCurrency(subtotalDisplay + shippingDisplay, currency)}</dd>
                 </div>
               </dl>
               <Link

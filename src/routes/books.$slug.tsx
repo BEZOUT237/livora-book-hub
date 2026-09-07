@@ -66,7 +66,7 @@ function BookPage() {
   const { t } = useI18n();
   const cart = useCart();
   const { data: session } = useSession();
-  const { format } = useCurrency();
+  const { price, format } = useCurrency();
   const [qty, setQty] = useState(1);
 
   const available = Math.max(0, book.stock_qty - book.reserved_qty);
@@ -112,6 +112,8 @@ function BookPage() {
         title: book.title,
         coverUrl: book.cover_url,
         price: Number(book.price),
+        priceUsd: book.price_usd,
+        priceEur: book.price_eur,
         language: book.book_language,
         maxQty: available > 0 ? available : 5,
       },
@@ -191,7 +193,7 @@ function BookPage() {
             </div>
 
             <div className="mt-6 flex items-baseline gap-3">
-              <span className="font-serif text-3xl">{format(book.price)}</span>
+              <span className="font-serif text-3xl">{price({ try: book.price, usd: book.price_usd, eur: book.price_eur })}</span>
               {book.compare_at_price && Number(book.compare_at_price) > Number(book.price) && (
                 <span className="text-base text-muted-foreground line-through">{format(book.compare_at_price)}</span>
               )}

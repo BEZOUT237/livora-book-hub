@@ -211,7 +211,7 @@ const CUSTOMER_FIELDS = [
   { name: "newsletter_opt_in", label: "Newsletter", type: "boolean" as const, default: false },
 ];
 
-function Stat({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Boxes }) {
+function Stat({ label, value, icon: Icon }: { label: string; value: string; icon: import("react").ComponentType<{ className?: string }> }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-panel">
       <div className="flex items-center justify-between">
@@ -266,16 +266,16 @@ function DashboardPanel() {
     },
   });
 
-  const list = books ?? [];
+  const list = (books ?? []) as Array<Record<string, unknown>>;
   const inventoryValue = list.reduce((sum, book) => {
-    const purchaseCost = Number(book.purchase_cost ?? 0);
-    const fxRate = Number(book.purchase_fx_rate ?? 1);
-    const shippingCost = Number(book.shipping_cost ?? 0);
-    const customsCost = Number(book.customs_cost ?? 0);
-    const packagingCost = Number(book.packaging_cost ?? 0);
-    return sum + (purchaseCost * fxRate + shippingCost + customsCost + packagingCost) * Number(book.stock_qty ?? 0);
+    const purchaseCost = Number(book["purchase_cost"] ?? 0);
+    const fxRate = Number(book["purchase_fx_rate"] ?? 1);
+    const shippingCost = Number(book["shipping_cost"] ?? 0);
+    const customsCost = Number(book["customs_cost"] ?? 0);
+    const packagingCost = Number(book["packaging_cost"] ?? 0);
+    return sum + (purchaseCost * fxRate + shippingCost + customsCost + packagingCost) * Number(book["stock_qty"] ?? 0);
   }, 0);
-  const lowStock = list.filter((book) => Number(book.stock_qty ?? 0) <= Number(book.reorder_threshold ?? 0));
+  const lowStock = list.filter((book) => Number(book["stock_qty"] ?? 0) <= Number(book["reorder_threshold"] ?? 0));
   const revenue = (orders ?? []).reduce((sum, order) => sum + Number(order.total ?? 0), 0);
 
   return (
@@ -304,13 +304,13 @@ function DashboardPanel() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {(list.slice(0, 6) as Array<Record<string, unknown>>).map((book) => {
+                {list.slice(0, 6).map((book) => {
                   const landed = landedCost(book as never);
-                  const m = marginPct(Number(book.price ?? 0), landed);
+                  const m = marginPct(Number(book["price"] ?? 0), landed);
                   return (
-                    <tr key={String(book.id)}>
-                      <td className="p-2">{String(book.title ?? "—")}</td>
-                      <td className="p-2">{formatTRY(book.price ?? 0)}</td>
+                    <tr key={String(book["id"])}>
+                      <td className="p-2">{String(book["title"] ?? "—")}</td>
+                      <td className="p-2">{formatTRY(Number(book["price"] ?? 0))}</td>
                       <td className="p-2 text-muted-foreground">{formatTRY(landed)}</td>
                       <td className={`p-2 font-semibold ${m < 20 ? "text-destructive" : "text-success"}`}>{m.toFixed(1)}%</td>
                     </tr>
