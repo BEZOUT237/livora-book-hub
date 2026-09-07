@@ -14,6 +14,8 @@ export type BookRow = {
   why_you_like_it: string | null;
   cover_url: string | null;
   price: number;
+  price_usd: number | null;
+  price_eur: number | null;
   compare_at_price: number | null;
   stock_qty: number;
   reserved_qty: number;
@@ -33,7 +35,7 @@ export type BookRow = {
 };
 
 export const BOOK_SELECT =
-  "id,isbn,slug,title,subtitle,book_language,format,pages,published_date,description,why_you_like_it,cover_url,price,compare_at_price,stock_qty,reserved_qty,stock_state,is_demo,is_trending,is_bestseller,is_new_arrival,rating,review_count,units_sold,category_id,created_at,authors(name,slug),publishers(name),categories(slug,name_tr,name_en,name_fr)";
+  "id,isbn,slug,title,subtitle,book_language,format,pages,published_date,description,why_you_like_it,cover_url,price,price_usd,price_eur,compare_at_price,stock_qty,reserved_qty,stock_state,is_demo,is_trending,is_bestseller,is_new_arrival,rating,review_count,units_sold,category_id,created_at,authors(name,slug),publishers(name),categories(slug,name_tr,name_en,name_fr)";
 
 export type BookQuery = {
   search?: string | undefined;

@@ -6,6 +6,8 @@ export type CartLine = {
   title: string;
   coverUrl: string | null;
   price: number;
+  priceUsd?: number | null;
+  priceEur?: number | null;
   language: string;
   quantity: number;
   maxQty: number;
