@@ -103,6 +103,7 @@ function AccountPage() {
   const { data: session, isLoading } = useSession();
   const { isStaff } = useRoles();
   const { t } = useI18n();
+  const { currency } = useCurrency();
 
   const { data: orders } = useQuery({
     queryKey: ["my-orders", session?.user.id],
