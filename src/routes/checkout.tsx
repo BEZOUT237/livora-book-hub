@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { SiteShell } from "@/components/livora/SiteShell";
 import { useCart } from "@/lib/cart";
-import { useCurrency } from "@/lib/currency";
+import { formatCurrency, useCurrency } from "@/lib/currency";
+import { useContent } from "@/lib/content";
 import { DEFAULT_SITE_CONTENT, fetchSiteContent, getSiteValue, shippingFor } from "@/lib/catalog";
 import { useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
@@ -13,12 +14,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 async function uploadDekont(file: File): Promise<string> {
   const ext = file.name.split(".").pop() ?? "jpg";
-  const path = `dekonts/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from("covers").upload(path, file, { upsert: true });
+  const path = `${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from("payment-proofs").upload(path, file, { upsert: true });
   if (error) throw error;
-  const { data, error: signErr } = await supabase.storage.from("covers").createSignedUrl(path, 60 * 60 * 24 * 30);
-  if (signErr || !data) throw signErr ?? new Error("Could not upload payment proof");
-  return data.signedUrl;
+  return path;
 }
 
 export const Route = createFileRoute("/checkout")({
@@ -49,7 +48,8 @@ function CheckoutPage() {
   const { lines, subtotal, clear } = useCart();
   const { t } = useI18n();
   const { data: session } = useSession();
-  const { currency, convert, format } = useCurrency();
+  const { currency, convert, amount, format } = useCurrency();
+  const { c } = useContent();
   const { data: siteContent } = useQuery({ queryKey: ["site-content"], queryFn: fetchSiteContent });
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -58,6 +58,11 @@ function CheckoutPage() {
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const shipping = shippingFor(subtotal);
+  const lineTotal = (l: (typeof lines)[number]) =>
+    amount({ try: l.price, usd: l.priceUsd, eur: l.priceEur }) * l.quantity;
+  const subtotalDisplay = lines.reduce((sum, l) => sum + lineTotal(l), 0);
+  const shippingDisplay = convert(shipping);
+  const totalTry = subtotal + shipping;
   const bankName = getSiteValue(siteContent, "bank_name", DEFAULT_SITE_CONTENT.bank_name);
   const bankIban = getSiteValue(siteContent, "bank_iban", DEFAULT_SITE_CONTENT.bank_iban);
   const bankAccountHolder = getSiteValue(siteContent, "bank_account_holder", DEFAULT_SITE_CONTENT.bank_account_holder);
@@ -88,9 +93,9 @@ function CheckoutPage() {
         payment_method: paymentMethod,
         payment_status: proofUrl ? "pending_verification" : "pending",
         payment_proof_path: proofUrl,
-        subtotal: convert(subtotal),
-        shipping_total: convert(shipping),
-        total: convert(subtotal + shipping),
+        subtotal: subtotalDisplay,
+        shipping_total: shippingDisplay,
+        total: subtotalDisplay + shippingDisplay,
       })
       .select("id,order_number")
       .single();
@@ -107,9 +112,9 @@ function CheckoutPage() {
         book_id: l.bookId,
         title: l.title,
         cover_url: l.coverUrl,
-        unit_price: convert(l.price),
+        unit_price: lineTotal(l) / l.quantity,
         quantity: l.quantity,
-        line_total: convert(l.price * l.quantity),
+        line_total: lineTotal(l),
       })),
     );
 
@@ -124,6 +129,10 @@ function CheckoutPage() {
         <div className="container-livora py-24 text-center">
           <h1 className="text-3xl">{t("checkout.success")}</h1>
           <p className="mt-3 text-sm text-muted-foreground">Order #{done}</p>
+          <p className="mx-auto mt-4 max-w-md rounded-full bg-accent/15 px-4 py-2 text-sm font-semibold">
+            {c("checkout_pending_label", t("checkout.pendingLabel"))}
+          </p>
+          <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">{c("checkout_success_note", "")}</p>
           <div className="mt-8 flex justify-center gap-3">
             <Link to="/account" className="rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-ink-foreground">
               {t("account.orders")}
@@ -189,7 +198,23 @@ function CheckoutPage() {
                   <li>{t("checkout.accountHolder")}: {bankAccountHolder}</li>
                   <li>{t("checkout.address")}: {contactAddress}</li>
                 </ul>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(bankIban.replace(/\s+/g, ""));
+                      toast.success(t("checkout.ibanCopied"));
+                    }}
+                    className="rounded-full border border-ink px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide"
+                  >
+                    {t("checkout.copyIban")}
+                  </button>
+                  <span className="font-semibold text-foreground">
+                    {t("checkout.amountToTransfer")}: {formatCurrency(totalTry, "TRY")}
+                  </span>
+                </div>
                 <p className="mt-3">{t("checkout.reference")}: LIVORA | {session?.user?.email ?? contactEmail}</p>
+                <p className="mt-2">{c("checkout_bank_intro", "")}</p>
               </div>
               <div className="mt-4 space-y-2">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("checkout.proofUpload")}</label>
@@ -212,6 +237,7 @@ function CheckoutPage() {
                   }}
                   className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-ink file:px-3 file:py-2 file:text-sm file:font-bold file:text-ink-foreground"
                 />
+                <p className="text-[11px] text-muted-foreground">{c("checkout_proof_help", "")}</p>
                 {proofUrl && <p className="text-xs text-success">{t("checkout.proofReady")}</p>}
                 {uploadingProof && <p className="text-xs text-muted-foreground">{t("checkout.proofUploading")}</p>}
               </div>
@@ -234,22 +260,22 @@ function CheckoutPage() {
                 <span className="line-clamp-2">
                   {l.quantity} × {l.title}
                 </span>
-                <span className="shrink-0 font-semibold">{format(l.price * l.quantity)}</span>
+                <span className="shrink-0 font-semibold">{formatCurrency(lineTotal(l), currency)}</span>
               </li>
             ))}
           </ul>
           <dl className="mt-5 space-y-2 border-t border-border pt-4 text-sm">
             <div className="flex justify-between">
               <dt className="text-muted-foreground">{t("cart.subtotal")}</dt>
-              <dd>{format(subtotal)}</dd>
+              <dd>{formatCurrency(subtotalDisplay, currency)}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">{t("cart.shipping")}</dt>
-              <dd>{shipping === 0 ? t("cart.free") : format(shipping)}</dd>
+              <dd>{shipping === 0 ? t("cart.free") : formatCurrency(shippingDisplay, currency)}</dd>
             </div>
             <div className="flex justify-between border-t border-border pt-3 text-base font-bold">
               <dt>{t("cart.total")}</dt>
-              <dd>{format(subtotal + shipping)}</dd>
+              <dd>{formatCurrency(subtotalDisplay + shippingDisplay, currency)}</dd>
             </div>
           </dl>
         </aside>
