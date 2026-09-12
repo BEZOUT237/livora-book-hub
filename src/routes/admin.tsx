@@ -222,6 +222,13 @@ const ORDER_FIELDS = [
   { name: "total", label: "Total", type: "number" as const, default: 0 },
   { name: "shipping_carrier", label: "Carrier", type: "text" as const },
   { name: "tracking_number", label: "Tracking", type: "text" as const },
+  { name: "internal_note", label: "Internal note", type: "textarea" as const, inTable: false },
+];
+
+const ORDER_EVENT_FIELDS = [
+  { name: "order_id", label: "Order ID", type: "text" as const, required: true },
+  { name: "status", label: "Status", type: "text" as const, required: true },
+  { name: "note", label: "Note", type: "textarea" as const },
 ];
 
 const INVENTORY_FIELDS = [
@@ -582,7 +589,12 @@ function AdminPage() {
       case "payments":
         return <PaymentPanel />;
       case "orders":
-        return <CrudSection table="orders" title="Orders" description="Order lifecycle, fulfilment and shipping handoff." fields={ORDER_FIELDS} select="id,order_number,full_name,email,status,payment_status,total,shipping_carrier,tracking_number" orderBy={{ column: "created_at", ascending: false }} searchKeys={["order_number", "full_name", "email", "status"]} />;
+        return (
+          <div className="space-y-8">
+            <CrudSection table="orders" title="Orders" description="Order lifecycle, fulfilment and shipping handoff." fields={ORDER_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["order_number", "full_name", "email", "status"]} />
+            <CrudSection table="order_events" title="Order timeline" description="Every status change and note attached to an order." fields={ORDER_EVENT_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["order_id", "status", "note"]} />
+          </div>
+        );
       case "customers":
         return <CrudSection table="profiles" title="Customers" description="Profiles, retention and communication preferences." fields={CUSTOMER_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["full_name", "phone", "locale"]} />;
       case "inventory":
