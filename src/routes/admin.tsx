@@ -23,6 +23,8 @@ import {
 import { useMemo, useState } from "react";
 import { CrudSection } from "@/components/admin/CrudSection";
 import { formatTRY, landedCost, marginPct } from "@/lib/format";
+import { formatCurrency, type Currency } from "@/lib/currency";
+import { toast } from "sonner";
 import { useRoles, useSession } from "@/lib/session";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteAdminUser } from "@/lib/admin-users.functions";
@@ -90,13 +92,66 @@ const moduleMeta: Array<{ key: ModuleKey; label: string; icon: typeof LayoutDash
 const BOOK_FIELDS = [
   { name: "title", label: "Title", type: "text" as const, required: true },
   { name: "slug", label: "Slug", type: "text" as const, required: true },
-  { name: "isbn", label: "ISBN", type: "text" as const },
+  { name: "isbn", label: "ISBN", type: "text" as const, inTable: false },
   { name: "book_language", label: "Language", type: "select" as const, options: [{ value: "EN", label: "EN" }, { value: "FR", label: "FR" }, { value: "TR", label: "TR" }] },
-  { name: "price", label: "Price", type: "number" as const, default: 0 },
+  { name: "format", label: "Format", type: "select" as const, options: [{ value: "paperback", label: "Paperback" }, { value: "hardcover", label: "Hardcover" }], inTable: false },
+  { name: "price", label: "Price (TRY)", type: "number" as const, default: 0 },
+  { name: "price_usd", label: "Price (USD)", type: "number" as const, inTable: false },
+  { name: "price_eur", label: "Price (EUR)", type: "number" as const, inTable: false },
+  { name: "compare_at_price", label: "Compare at (TRY)", type: "number" as const, inTable: false },
+  { name: "purchase_cost", label: "Purchase cost", type: "number" as const, inTable: false },
   { name: "stock_qty", label: "Stock", type: "number" as const, default: 0 },
+  { name: "reorder_threshold", label: "Reorder at", type: "number" as const, default: 3, inTable: false },
   { name: "is_active", label: "Active", type: "boolean" as const, default: true },
-  { name: "cover_url", label: "Cover URL", type: "image" as const },
-  { name: "description", label: "Description", type: "textarea" as const },
+  { name: "is_featured", label: "Featured", type: "boolean" as const, default: false, inTable: false },
+  { name: "is_bestseller", label: "Bestseller", type: "boolean" as const, default: false, inTable: false },
+  { name: "is_new_arrival", label: "New arrival", type: "boolean" as const, default: false, inTable: false },
+  { name: "is_trending", label: "Trending", type: "boolean" as const, default: false, inTable: false },
+  { name: "cover_url", label: "Cover", type: "image" as const, inTable: false },
+  { name: "cover_alt", label: "Cover alt text", type: "text" as const, inTable: false },
+  { name: "short_description", label: "Short description", type: "textarea" as const, inTable: false },
+  { name: "description", label: "Description", type: "textarea" as const, inTable: false },
+  { name: "why_you_like_it", label: "Why you'll like it", type: "textarea" as const, inTable: false },
+  { name: "seo_title", label: "SEO title", type: "text" as const, inTable: false },
+  { name: "seo_description", label: "SEO description", type: "textarea" as const, inTable: false },
+  { name: "tags", label: "Tags", type: "text" as const, inTable: false },
+];
+
+const SITE_CONTENT_FIELDS = [
+  { name: "key", label: "Key", type: "text" as const, required: true },
+  { name: "label", label: "Label", type: "text" as const, required: true },
+  { name: "group_name", label: "Group", type: "text" as const, required: true },
+  { name: "kind", label: "Kind", type: "select" as const, options: [{ value: "text", label: "Short text" }, { value: "richtext", label: "Paragraph" }], inTable: false },
+  { name: "value_tr", label: "Türkçe", type: "textarea" as const, inTable: false },
+  { name: "value_en", label: "English", type: "textarea" as const },
+  { name: "value_fr", label: "Français", type: "textarea" as const, inTable: false },
+  { name: "sort_order", label: "Sort order", type: "number" as const, default: 0, inTable: false },
+];
+
+const MEDIA_FIELDS = [
+  { name: "url", label: "File", type: "image" as const, required: true },
+  { name: "file_name", label: "File name", type: "text" as const, required: true },
+  { name: "alt_text", label: "Alt text", type: "text" as const },
+  { name: "folder", label: "Folder", type: "text" as const, default: "general" },
+];
+
+const ROLE_FIELDS = [
+  { name: "user_id", label: "User ID", type: "text" as const, required: true, help: "Copy the user id from the Customers module." },
+  {
+    name: "role",
+    label: "Role",
+    type: "select" as const,
+    required: true,
+    options: [
+      { value: "super_admin", label: "Super admin" },
+      { value: "tech", label: "Tech" },
+      { value: "finance", label: "Finance" },
+      { value: "inventory", label: "Inventory" },
+      { value: "support", label: "Support" },
+      { value: "marketing", label: "Marketing" },
+      { value: "customer", label: "Customer" },
+    ],
+  },
 ];
 
 const CATEGORY_FIELDS = [
@@ -167,6 +222,13 @@ const ORDER_FIELDS = [
   { name: "total", label: "Total", type: "number" as const, default: 0 },
   { name: "shipping_carrier", label: "Carrier", type: "text" as const },
   { name: "tracking_number", label: "Tracking", type: "text" as const },
+  { name: "internal_note", label: "Internal note", type: "textarea" as const, inTable: false },
+];
+
+const ORDER_EVENT_FIELDS = [
+  { name: "order_id", label: "Order ID", type: "text" as const, required: true },
+  { name: "status", label: "Status", type: "text" as const, required: true },
+  { name: "note", label: "Note", type: "textarea" as const },
 ];
 
 const INVENTORY_FIELDS = [
@@ -266,6 +328,24 @@ function DashboardPanel() {
     },
   });
 
+  const { data: counts } = useQuery({
+    queryKey: ["admin-counts"],
+    queryFn: async () => {
+      const [payments, orderCount, customers, reviews] = await Promise.all([
+        supabase.from("orders").select("id", { count: "exact", head: true }).in("payment_status", ["pending", "pending_verification"]),
+        supabase.from("orders").select("id", { count: "exact", head: true }),
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+        supabase.from("reviews").select("id", { count: "exact", head: true }).eq("is_approved", false),
+      ]);
+      return {
+        payments: payments.count ?? 0,
+        orders: orderCount.count ?? 0,
+        customers: customers.count ?? 0,
+        pendingReviews: reviews.count ?? 0,
+      };
+    },
+  });
+
   const list = (books ?? []) as Array<Record<string, unknown>>;
   const inventoryValue = list.reduce((sum, book) => {
     const purchaseCost = Number(book["purchase_cost"] ?? 0);
@@ -324,14 +404,36 @@ function DashboardPanel() {
         <section className="rounded-xl border border-border bg-card p-5 shadow-panel">
           <h2 className="text-xl">Operations snapshot</h2>
           <div className="mt-4 space-y-3">
-            <ModuleSummaryCard title="Payments" subtitle="Awaiting dekont review" badge="3" />
-            <ModuleSummaryCard title="Returns" subtitle="2 shipping tickets open" badge="2" />
-            <ModuleSummaryCard title="Marketing" subtitle="3 campaigns active" badge="3" />
-            <ModuleSummaryCard title="Inventory" subtitle="7 SKUs below reorder threshold" badge="7" />
+            <ModuleSummaryCard title="Payments" subtitle="Awaiting dekont review" badge={String(counts?.payments ?? 0)} />
+            <ModuleSummaryCard title="Orders" subtitle="Orders placed in total" badge={String(counts?.orders ?? 0)} />
+            <ModuleSummaryCard title="Customers" subtitle="Registered accounts" badge={String(counts?.customers ?? 0)} />
+            <ModuleSummaryCard title="Inventory" subtitle="SKUs below reorder threshold" badge={String(lowStock.length)} />
           </div>
         </section>
       </div>
     </div>
+  );
+}
+
+function ProofLink({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        if (path.startsWith("http")) {
+          window.open(path, "_blank", "noreferrer");
+          return;
+        }
+        const { data, error } = await supabase.storage.from("payment-proofs").createSignedUrl(path, 60 * 10);
+        if (error || !data) return;
+        setUrl(data.signedUrl);
+        window.open(data.signedUrl, "_blank", "noreferrer");
+      }}
+      className="rounded-md border border-border px-3 py-1.5 text-xs font-bold"
+    >
+      {url ? "Open again" : "View dekont"}
+    </button>
   );
 }
 
@@ -342,7 +444,7 @@ function PaymentPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("id,order_number,full_name,email,total,currency,payment_status,status,payment_proof_path")
+        .select("id,order_number,full_name,email,total,currency,payment_status,status,payment_proof_path,payment_proof_uploaded_at,created_at")
         .in("payment_status", ["pending", "pending_verification"])
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -350,15 +452,39 @@ function PaymentPanel() {
     },
   });
 
-  const approve = async (id: string) => {
-    const { error } = await supabase.from("orders").update({ payment_status: "paid", status: "paid" }).eq("id", id);
-    if (!error) queryClient.invalidateQueries({ queryKey: ["admin-payment-orders"] });
+  const decide = async (id: string, approved: boolean) => {
+    const note = approved ? "Bank transfer verified by staff" : "Payment proof rejected by staff";
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        payment_status: approved ? "paid" : "rejected",
+        status: approved ? "paid" : "pending_payment",
+        payment_verified_at: approved ? new Date().toISOString() : null,
+        payment_review_note: note,
+      })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase.from("order_events").insert({
+      order_id: id,
+      status: approved ? "paid" : "payment_rejected",
+      note,
+      created_by: userData.user?.id ?? null,
+    });
+    toast.success(approved ? "Payment confirmed" : "Payment rejected");
+    queryClient.invalidateQueries({ queryKey: ["admin-payment-orders"] });
   };
 
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-5 shadow-panel">
-        <h2 className="text-xl">Payment approvals</h2>
+        <h2 className="text-xl">Bank transfers to verify</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Orders stay in “Paiement à vérifier” until a dekont is confirmed here.
+        </p>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -376,12 +502,22 @@ function PaymentPanel() {
               {orders?.map((order) => (
                 <tr key={order.id}>
                   <td className="p-3">#{order.order_number}</td>
-                  <td className="p-3">{order.full_name}</td>
-                  <td className="p-3">{formatTRY(order.total)}</td>
-                  <td className="p-3"><span className="rounded-full bg-warning/15 px-2 py-1 text-xs font-semibold text-warning">{order.payment_status}</span></td>
-                  <td className="p-3 flex gap-2">
-                    {order.payment_proof_path && <a href={order.payment_proof_path} target="_blank" rel="noreferrer" className="rounded-md border border-border px-3 py-1.5 text-xs font-bold">Proof</a>}
-                    <button onClick={() => approve(order.id)} className="rounded-md bg-ink px-3 py-1.5 text-xs font-bold text-ink-foreground">Approve</button>
+                  <td className="p-3">
+                    <div>{order.full_name}</div>
+                    <div className="text-xs text-muted-foreground">{order.email}</div>
+                  </td>
+                  <td className="p-3">{formatCurrency(order.total, (order.currency || "TRY") as Currency)}</td>
+                  <td className="p-3">
+                    <span className="rounded-full bg-warning/15 px-2 py-1 text-xs font-semibold text-warning">
+                      {order.payment_status === "pending_verification" ? "Paiement à vérifier" : "Awaiting transfer"}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex flex-wrap gap-2">
+                      {order.payment_proof_path && <ProofLink path={order.payment_proof_path} />}
+                      <button onClick={() => decide(order.id, true)} className="rounded-md bg-ink px-3 py-1.5 text-xs font-bold text-ink-foreground">Confirm</button>
+                      <button onClick={() => decide(order.id, false)} className="rounded-md border border-destructive px-3 py-1.5 text-xs font-bold text-destructive">Reject</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -435,7 +571,7 @@ function AdminPage() {
       case "dashboard":
         return <DashboardPanel />;
       case "books":
-        return <CrudSection table="books" title="Books" description="Catalogue, pricing, stock and best-seller signals." fields={BOOK_FIELDS} select="id,title,slug,isbn,price,stock_qty,book_language,is_active,cover_url,description" orderBy={{ column: "created_at", ascending: false }} searchKeys={["title", "isbn", "slug"]} />;
+        return <CrudSection table="books" title="Books" description="Catalogue, pricing, stock and best-seller signals." fields={BOOK_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["title", "isbn", "slug"]} />;
       case "categories":
         return <CrudSection table="categories" title="Categories" description="Merchandising and browse filters." fields={CATEGORY_FIELDS} select="*" orderBy={{ column: "sort_order", ascending: true }} searchKeys={["name_tr", "name_en", "name_fr"]} />;
       case "collections":
@@ -453,15 +589,25 @@ function AdminPage() {
       case "payments":
         return <PaymentPanel />;
       case "orders":
-        return <CrudSection table="orders" title="Orders" description="Order lifecycle, fulfilment and shipping handoff." fields={ORDER_FIELDS} select="id,order_number,full_name,email,status,payment_status,total,shipping_carrier,tracking_number" orderBy={{ column: "created_at", ascending: false }} searchKeys={["order_number", "full_name", "email", "status"]} />;
+        return (
+          <div className="space-y-8">
+            <CrudSection table="orders" title="Orders" description="Order lifecycle, fulfilment and shipping handoff." fields={ORDER_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["order_number", "full_name", "email", "status"]} />
+            <CrudSection table="order_events" title="Order timeline" description="Every status change and note attached to an order." fields={ORDER_EVENT_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["order_id", "status", "note"]} />
+          </div>
+        );
       case "customers":
         return <CrudSection table="profiles" title="Customers" description="Profiles, retention and communication preferences." fields={CUSTOMER_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["full_name", "phone", "locale"]} />;
       case "inventory":
         return <CrudSection table="inventory_movements" title="Inventory" description="Stock movements and purchase planning history." fields={INVENTORY_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["book_id", "reason", "reference"]} />;
       case "content":
-        return <CrudSection table="blog_posts" title="Content CMS" description="Long-form content, article library and editorial updates." fields={BLOG_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["slug", "title", "excerpt"]} />;
+        return (
+          <div className="space-y-8">
+            <CrudSection table="site_content" title="Site text (CMS)" description="Every public text block on the storefront, in Turkish, English and French." fields={SITE_CONTENT_FIELDS} select="*" orderBy={{ column: "group_name", ascending: true }} searchKeys={["key", "label", "group_name", "value_en", "value_fr", "value_tr"]} />
+            <CrudSection table="blog_posts" title="Articles" description="Long-form content and editorial updates." fields={BLOG_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["slug", "title", "excerpt"]} />
+          </div>
+        );
       case "media":
-        return <CrudSection table="blog_posts" title="Media Library" description="Cover and editorial image assets currently attached to content." fields={BLOG_FIELDS.filter((field) => ["title", "cover_url"].includes(field.name))} select="id,title,cover_url,created_at" orderBy={{ column: "created_at", ascending: false }} searchKeys={["title", "cover_url"]} />;
+        return <CrudSection table="media_assets" title="Media Library" description="Upload, name and reuse every image used across the storefront." fields={MEDIA_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["file_name", "alt_text", "folder"]} />;
       case "marketing":
         return <CrudSection table="ambassadors" title="Marketing" description="Referral partners and campaign attribution." fields={AMBASSADOR_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["name", "email", "code"]} />;
       case "shipping":
@@ -469,7 +615,12 @@ function AdminPage() {
       case "analytics":
         return <CrudSection table="analytics_events" title="Analytics" description="Traffic, conversion and product trend events." fields={[{ name: "name", label: "Event", type: "text" as const, required: true }, { name: "source", label: "Source", type: "text" as const }, { name: "campaign", label: "Campaign", type: "text" as const }]} select="id,name,source,campaign,created_at" orderBy={{ column: "created_at", ascending: false }} searchKeys={["name", "source", "campaign"]} />;
       case "admins":
-        return <CrudSection table="profiles" title="Admin Users" description="User accounts, contact details and access control." fields={CUSTOMER_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["email", "full_name", "phone"]} removeOverride={async (id) => { await deleteAdminUser({ data: { userId: id } }); }} />;
+        return (
+          <div className="space-y-8">
+            <CrudSection table="user_roles" title="Roles & access" description="Grant or revoke staff access. A user can hold several roles." fields={ROLE_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["user_id", "role"]} />
+            <CrudSection table="profiles" title="Accounts" description="User accounts and contact details. Deleting removes the account entirely." fields={CUSTOMER_FIELDS} select="*" orderBy={{ column: "created_at", ascending: false }} searchKeys={["full_name", "phone"]} removeOverride={async (id) => { await deleteAdminUser({ data: { userId: id } }); }} />
+          </div>
+        );
       case "activity":
         return <CrudSection table="audit_logs" title="Activity Log" description="Audit trail for changes across the control center." fields={[{ name: "action", label: "Action", type: "text" as const }, { name: "entity", label: "Entity", type: "text" as const }, { name: "entity_id", label: "Entity ID", type: "text" as const }]} select="id,action,entity,entity_id,created_at" orderBy={{ column: "created_at", ascending: false }} searchKeys={["action", "entity", "entity_id"]} />;
       default:

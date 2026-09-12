@@ -42,6 +42,9 @@ export type AdminTable =
   | "inventory_movements"
   | "analytics_events"
   | "audit_logs"
+  | "site_content"
+  | "media_assets"
+  | "order_events"
   | "profiles";
 
 export function useAdminList(table: AdminTable, select = "*", orderBy?: { column: string; ascending?: boolean }) {
@@ -120,6 +123,21 @@ export async function uploadCover(file: File): Promise<string> {
   const { data, error: signErr } = await supabase.storage.from("covers").createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
   if (signErr || !data) throw signErr ?? new Error("Could not sign cover URL");
   return data.signedUrl;
+}
+
+/** Upload any media file to the covers bucket and record it in the media library. */
+export async function uploadMedia(file: File, folder = "general"): Promise<string> {
+  const url = await uploadCover(file);
+  const { data: userData } = await supabase.auth.getUser();
+  await supabase.from("media_assets").insert({
+    url,
+    file_name: file.name,
+    folder,
+    content_type: file.type,
+    size_bytes: file.size,
+    created_by: userData.user?.id ?? null,
+  });
+  return url;
 }
 
 export function slugify(input: string): string {
