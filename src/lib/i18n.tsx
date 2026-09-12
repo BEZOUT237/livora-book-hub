@@ -113,6 +113,10 @@ export const dict: Dict = {
   "checkout.proofUpload": { tr: "Dekont yükle", en: "Upload payment proof", fr: "Téléverser le justificatif" },
   "checkout.proofReady": { tr: "Dekont inceleme için hazır.", en: "Payment proof ready for review.", fr: "Justificatif prêt à être vérifié." },
   "checkout.proofUploading": { tr: "Yükleniyor…", en: "Uploading…", fr: "Téléversement…" },
+  "checkout.copyIban": { tr: "IBAN'ı kopyala", en: "Copy IBAN", fr: "Copier l'IBAN" },
+  "checkout.ibanCopied": { tr: "IBAN kopyalandı", en: "IBAN copied", fr: "IBAN copié" },
+  "checkout.amountToTransfer": { tr: "Gönderilecek tutar", en: "Amount to transfer", fr: "Montant à virer" },
+  "checkout.pendingLabel": { tr: "Ödeme doğrulanacak", en: "Payment to verify", fr: "Paiement à vérifier" },
   "checkout.place": { tr: "Siparişi tamamla", en: "Place order", fr: "Valider la commande" },
   "checkout.guest": { tr: "Üye olmadan devam edebilirsiniz.", en: "You can continue as a guest.", fr: "Vous pouvez continuer en tant qu'invité." },
   "checkout.sandbox": {

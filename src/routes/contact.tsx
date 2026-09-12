@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteShell } from "@/components/livora/SiteShell";
-import { fetchSiteContent, DEFAULT_SITE_CONTENT, getSiteValue } from "@/lib/catalog";
-import { useQuery } from "@tanstack/react-query";
+import { useContent } from "@/lib/content";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -18,19 +17,19 @@ export const Route = createFileRoute("/contact")({
 });
 
 function ContactPage() {
-  const { data: siteContent } = useQuery({ queryKey: ["site-content"], queryFn: fetchSiteContent });
-  const contactEmail = getSiteValue(siteContent, "contact_email", DEFAULT_SITE_CONTENT.contact_email);
-  const contactAddress = getSiteValue(siteContent, "contact_address", DEFAULT_SITE_CONTENT.contact_address);
-  const contactPhone = getSiteValue(siteContent, "contact_phone", DEFAULT_SITE_CONTENT.contact_phone);
+  const { c } = useContent();
+  const contactEmail = c("contact_email", "yemelink@gmail.com");
+  const contactAddress = c("contact_address", "Bolu, Türkiye");
+  const contactPhone = c("contact_phone", "+90 501 024 20 25");
 
   return (
     <SiteShell>
       <div className="container-livora py-16 md:py-20">
         <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-card p-8 shadow-panel">
           <p className="eyebrow">Contact</p>
-          <h1 className="mt-3 text-4xl">Say hello to LIVORA.</h1>
+          <h1 className="mt-3 text-4xl">{c("contact_title", "Say hello to LIVORA.")}</h1>
           <p className="mt-4 text-base text-muted-foreground">
-            We are here for orders, editorial questions, business partnerships, and support.
+            {c("contact_intro", "We are here for orders, editorial questions, business partnerships, and support.")}
           </p>
 
           <div className="mt-8 grid gap-5 md:grid-cols-2">
