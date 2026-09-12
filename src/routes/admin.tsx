@@ -23,6 +23,8 @@ import {
 import { useMemo, useState } from "react";
 import { CrudSection } from "@/components/admin/CrudSection";
 import { formatTRY, landedCost, marginPct } from "@/lib/format";
+import { formatCurrency, type Currency } from "@/lib/currency";
+import { toast } from "sonner";
 import { useRoles, useSession } from "@/lib/session";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteAdminUser } from "@/lib/admin-users.functions";
@@ -319,6 +321,24 @@ function DashboardPanel() {
     },
   });
 
+  const { data: counts } = useQuery({
+    queryKey: ["admin-counts"],
+    queryFn: async () => {
+      const [payments, orderCount, customers, reviews] = await Promise.all([
+        supabase.from("orders").select("id", { count: "exact", head: true }).in("payment_status", ["pending", "pending_verification"]),
+        supabase.from("orders").select("id", { count: "exact", head: true }),
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+        supabase.from("reviews").select("id", { count: "exact", head: true }).eq("is_approved", false),
+      ]);
+      return {
+        payments: payments.count ?? 0,
+        orders: orderCount.count ?? 0,
+        customers: customers.count ?? 0,
+        pendingReviews: reviews.count ?? 0,
+      };
+    },
+  });
+
   const list = (books ?? []) as Array<Record<string, unknown>>;
   const inventoryValue = list.reduce((sum, book) => {
     const purchaseCost = Number(book["purchase_cost"] ?? 0);
@@ -377,14 +397,36 @@ function DashboardPanel() {
         <section className="rounded-xl border border-border bg-card p-5 shadow-panel">
           <h2 className="text-xl">Operations snapshot</h2>
           <div className="mt-4 space-y-3">
-            <ModuleSummaryCard title="Payments" subtitle="Awaiting dekont review" badge="3" />
-            <ModuleSummaryCard title="Returns" subtitle="2 shipping tickets open" badge="2" />
-            <ModuleSummaryCard title="Marketing" subtitle="3 campaigns active" badge="3" />
-            <ModuleSummaryCard title="Inventory" subtitle="7 SKUs below reorder threshold" badge="7" />
+            <ModuleSummaryCard title="Payments" subtitle="Awaiting dekont review" badge={String(counts?.payments ?? 0)} />
+            <ModuleSummaryCard title="Orders" subtitle="Orders placed in total" badge={String(counts?.orders ?? 0)} />
+            <ModuleSummaryCard title="Customers" subtitle="Registered accounts" badge={String(counts?.customers ?? 0)} />
+            <ModuleSummaryCard title="Inventory" subtitle="SKUs below reorder threshold" badge={String(lowStock.length)} />
           </div>
         </section>
       </div>
     </div>
+  );
+}
+
+function ProofLink({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        if (path.startsWith("http")) {
+          window.open(path, "_blank", "noreferrer");
+          return;
+        }
+        const { data, error } = await supabase.storage.from("payment-proofs").createSignedUrl(path, 60 * 10);
+        if (error || !data) return;
+        setUrl(data.signedUrl);
+        window.open(data.signedUrl, "_blank", "noreferrer");
+      }}
+      className="rounded-md border border-border px-3 py-1.5 text-xs font-bold"
+    >
+      {url ? "Open again" : "View dekont"}
+    </button>
   );
 }
 
@@ -395,7 +437,7 @@ function PaymentPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("id,order_number,full_name,email,total,currency,payment_status,status,payment_proof_path")
+        .select("id,order_number,full_name,email,total,currency,payment_status,status,payment_proof_path,payment_proof_uploaded_at,created_at")
         .in("payment_status", ["pending", "pending_verification"])
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -403,15 +445,39 @@ function PaymentPanel() {
     },
   });
 
-  const approve = async (id: string) => {
-    const { error } = await supabase.from("orders").update({ payment_status: "paid", status: "paid" }).eq("id", id);
-    if (!error) queryClient.invalidateQueries({ queryKey: ["admin-payment-orders"] });
+  const decide = async (id: string, approved: boolean) => {
+    const note = approved ? "Bank transfer verified by staff" : "Payment proof rejected by staff";
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        payment_status: approved ? "paid" : "rejected",
+        status: approved ? "paid" : "pending_payment",
+        payment_verified_at: approved ? new Date().toISOString() : null,
+        payment_review_note: note,
+      })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase.from("order_events").insert({
+      order_id: id,
+      status: approved ? "paid" : "payment_rejected",
+      note,
+      created_by: userData.user?.id ?? null,
+    });
+    toast.success(approved ? "Payment confirmed" : "Payment rejected");
+    queryClient.invalidateQueries({ queryKey: ["admin-payment-orders"] });
   };
 
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-5 shadow-panel">
-        <h2 className="text-xl">Payment approvals</h2>
+        <h2 className="text-xl">Bank transfers to verify</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Orders stay in “Paiement à vérifier” until a dekont is confirmed here.
+        </p>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -429,12 +495,22 @@ function PaymentPanel() {
               {orders?.map((order) => (
                 <tr key={order.id}>
                   <td className="p-3">#{order.order_number}</td>
-                  <td className="p-3">{order.full_name}</td>
-                  <td className="p-3">{formatTRY(order.total)}</td>
-                  <td className="p-3"><span className="rounded-full bg-warning/15 px-2 py-1 text-xs font-semibold text-warning">{order.payment_status}</span></td>
-                  <td className="p-3 flex gap-2">
-                    {order.payment_proof_path && <a href={order.payment_proof_path} target="_blank" rel="noreferrer" className="rounded-md border border-border px-3 py-1.5 text-xs font-bold">Proof</a>}
-                    <button onClick={() => approve(order.id)} className="rounded-md bg-ink px-3 py-1.5 text-xs font-bold text-ink-foreground">Approve</button>
+                  <td className="p-3">
+                    <div>{order.full_name}</div>
+                    <div className="text-xs text-muted-foreground">{order.email}</div>
+                  </td>
+                  <td className="p-3">{formatCurrency(order.total, (order.currency || "TRY") as Currency)}</td>
+                  <td className="p-3">
+                    <span className="rounded-full bg-warning/15 px-2 py-1 text-xs font-semibold text-warning">
+                      {order.payment_status === "pending_verification" ? "Paiement à vérifier" : "Awaiting transfer"}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex flex-wrap gap-2">
+                      {order.payment_proof_path && <ProofLink path={order.payment_proof_path} />}
+                      <button onClick={() => decide(order.id, true)} className="rounded-md bg-ink px-3 py-1.5 text-xs font-bold text-ink-foreground">Confirm</button>
+                      <button onClick={() => decide(order.id, false)} className="rounded-md border border-destructive px-3 py-1.5 text-xs font-bold text-destructive">Reject</button>
+                    </div>
                   </td>
                 </tr>
               ))}
