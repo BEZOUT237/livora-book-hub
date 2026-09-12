@@ -8,6 +8,7 @@ import { BookRail } from "@/components/livora/BookRail";
 import { Partners } from "@/components/livora/Footer";
 import { DEFAULT_SITE_CONTENT, fetchCollectionBooks, fetchHomepageSections, fetchSiteContent, getSiteValue, type BookRow } from "@/lib/catalog";
 import { localized, useI18n } from "@/lib/i18n";
+import { useContent } from "@/lib/content";
 import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/hero-books.jpg";
 
@@ -34,10 +35,10 @@ export const Route = createFileRoute("/")({
 
 function Hero() {
   const { t } = useI18n();
-  const { data: siteContent } = useQuery({ queryKey: ["site-content"], queryFn: fetchSiteContent });
-  const heroEyebrow = getSiteValue(siteContent, "home_hero_eyebrow", "From Bolu to all of Türkiye");
-  const heroTitle = getSiteValue(siteContent, "home_hero_title", "English and French books, intelligently curated.");
-  const heroSubtitle = getSiteValue(siteContent, "home_hero_subtitle", "The world's most talked-about titles, with fast delivery and honest pricing.");
+  const { c } = useContent();
+  const heroEyebrow = c("home_hero_eyebrow", t("hero.eyebrow"));
+  const heroTitle = c("home_hero_title", t("hero.title"));
+  const heroSubtitle = c("home_hero_subtitle", t("hero.subtitle"));
 
   return (
     <section className="relative overflow-hidden bg-ink text-ink-foreground">
@@ -59,14 +60,14 @@ function Hero() {
               to="/books"
               className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-bold text-accent-foreground transition-transform hover:-translate-y-0.5"
             >
-              {t("hero.cta")} <ArrowRight className="size-4" />
+              {c("home_hero_cta", t("hero.cta"))} <ArrowRight className="size-4" />
             </Link>
             <Link
               to="/books"
               search={{ sort: "bestsellers" } as never}
               className="inline-flex items-center gap-2 rounded-full border border-ink-foreground/30 px-6 py-3 text-sm font-bold hover:border-accent hover:text-accent"
             >
-              {t("hero.cta2")}
+              {c("home_hero_cta2", t("hero.cta2"))}
             </Link>
           </div>
           <div className="mt-10 flex flex-wrap gap-x-8 gap-y-2 text-xs text-ink-foreground/60">
