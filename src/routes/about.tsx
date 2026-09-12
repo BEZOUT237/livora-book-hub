@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteShell } from "@/components/livora/SiteShell";
 import { Partners } from "@/components/livora/Footer";
-import nikoPortrait from "../../niko pro 2.jfif";
-import stephPortrait from "../../steph pro.png";
+import nikoPortrait from "@/assets/nickel-feumo.jpg";
+import stephPortrait from "@/assets/steph-yemeli.jpg";
 
 export const Route = createFileRoute("/about")({
   head: () => ({

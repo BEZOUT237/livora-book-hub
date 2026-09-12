@@ -2,8 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { DEFAULT_SITE_CONTENT, fetchSiteContent, getSiteValue } from "@/lib/catalog";
-import yemelinkLogo from "../../../yemelink-logo.png";
-import algoFinanceLogo from "../../../algofinance logo.jpg";
+import yemelinkLogo from "@/assets/yemelink-logo.png";
+import algoFinanceLogo from "@/assets/algo-finance-logo.jpg";
 
 export function Partners() {
   const { t } = useI18n();

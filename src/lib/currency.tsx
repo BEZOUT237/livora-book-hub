@@ -11,7 +11,7 @@ const STORAGE_KEY = "livora.currency";
 export const CURRENCIES: Currency[] = ["TRY", "USD", "EUR"];
 
 /** A price expressed in TRY plus optional exact USD / EUR prices set by the admin. */
-export type PriceSet = { try: number; usd?: number | null; eur?: number | null };
+export type PriceSet = { try: number; usd?: number | null | undefined; eur?: number | null | undefined };
 
 export function formatCurrency(value: number | string | null | undefined, currency: Currency): string {
   return new Intl.NumberFormat(LOCALES[currency], {
