@@ -88,8 +88,23 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 }
 
+const FALLBACK_CONTEXT: CurrencyContextValue = (() => {
+  const currency: Currency = "USD";
+  const convert = (t: number | string | null | undefined) => Number(t || 0) * FALLBACK_RATES[currency];
+  const amount = (p: PriceSet) => (p.usd != null && Number(p.usd) > 0 ? Number(p.usd) : Number(p.try || 0) * FALLBACK_RATES[currency]);
+  return {
+    currency,
+    rates: FALLBACK_RATES,
+    setCurrency: () => {},
+    convert,
+    format: (t) => formatCurrency(convert(t), currency),
+    amount,
+    price: (p) => formatCurrency(amount(p), currency),
+  };
+})();
+
 export function useCurrency() {
   const context = useContext(CurrencyContext);
-  if (!context) throw new Error("useCurrency must be used inside CurrencyProvider");
-  return context;
+  // Fallback keeps the page rendering if the provider is momentarily missing (e.g. after a hot reload).
+  return context ?? FALLBACK_CONTEXT;
 }
