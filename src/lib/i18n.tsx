@@ -154,10 +154,10 @@ export const dict: Dict = {
 };
 
 type Ctx = { locale: Locale; setLocale: (l: Locale) => void; t: (k: keyof typeof dict | string) => string };
-const LanguageContext = createContext<Ctx>({ locale: "tr", setLocale: () => {}, t: (k) => String(k) });
+const LanguageContext = createContext<Ctx>({ locale: "en", setLocale: () => {}, t: (k) => String(k) });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("tr");
+  const [locale, setLocaleState] = useState<Locale>("en");
 
   useEffect(() => {
     const stored = window.localStorage.getItem("livora.locale") as Locale | null;
