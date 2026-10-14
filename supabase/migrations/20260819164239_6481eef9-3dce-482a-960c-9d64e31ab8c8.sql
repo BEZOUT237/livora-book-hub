@@ -151,7 +151,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO public.settings (key, value, label, category) VALUES
   ('contact_city',        'Bolu, Türkiye',            'Contact city',          'contact'),
   ('contact_email',       'yemelink@gmail.com',       'Contact e-mail',        'contact'),
-  ('contact_phone',       '+90 501 024 20 25',        'Contact phone',         'contact'),
+  ('contact_phone',       '+90 505 740 43 14',        'Contact phone',         'contact'),
   ('social_instagram',    '',                         'Instagram URL',         'contact'),
   ('social_tiktok',       '',                         'TikTok URL',            'contact'),
   ('bank_name',           'Ziraat Bankası',           'Bank name',             'payment'),
